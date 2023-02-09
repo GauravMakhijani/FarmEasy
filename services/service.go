@@ -16,12 +16,12 @@ var secretKey = []byte("I'mGoingToBeAGolangDeveloper")
 
 type Service interface {
 	Register(context.Context, NewFarmer) (addedFarmer db.Farmer, err error)
-	Login(context.Context, NewLogin) (token string, err error)
+	Login(context.Context, LoginRequest) (token string, err error)
 	AddMachine(context.Context, NewMachine) (addedMachine db.Machine, err error)
 	GetMachines(context.Context) (machines []db.Machine, err error)
-	BookMachine(context.Context, NewBooking) (db.Invoice, error)
-	GetAvailability(context.Context, uint) (slotsAvailable []uint, err error)
-	GetAllBookings(context.Context, uint) (bookings []db.Booking, err error)
+	BookMachine(context.Context, NewBookingRequest) (NewBookingResponse, error)
+	GetAvailability(context.Context, uint, string) (slotsAvailable []uint, err error)
+	GetAllBookings(context.Context, uint) (bookings []db.BookingResponse, err error)
 }
 
 type FarmService struct {
@@ -69,13 +69,14 @@ func Hash_password(password string) (hash string) {
 	return
 }
 
-func (s *FarmService) Login(ctx context.Context, fAuth NewLogin) (token string, err error) {
+func (s *FarmService) Login(ctx context.Context, fAuth LoginRequest) (token string, err error) {
 	var farmerId uint
 	fAuth.Password = Hash_password(fAuth.Password)
 	farmerId, err = s.store.LoginFarmer(ctx, fAuth.Email, fAuth.Password)
 	if err != nil {
 		return
 	}
+
 	token, err = generateJWT(farmerId)
 	if err != nil {
 		return
@@ -98,7 +99,7 @@ func (s *FarmService) GetMachines(ctx context.Context) (machines []db.Machine, e
 	return
 }
 
-func (s *FarmService) BookMachine(ctx context.Context, booking NewBooking) (invoice db.Invoice, err error) {
+func (s *FarmService) BookMachine(ctx context.Context, booking NewBookingRequest) (invoice NewBookingResponse, err error) {
 
 	for _, slot := range booking.Slots {
 		empty := s.store.IsEmptySlot(ctx, booking.MachineId, slot, booking.Date)
@@ -140,14 +141,16 @@ func (s *FarmService) BookMachine(ctx context.Context, booking NewBooking) (invo
 	}
 	newInvoice.Id, err = s.store.GenrateInvoice(ctx, newInvoice)
 
-	invoice = newInvoice
+	rsp := NewBookingResponse{InvoiceId: newInvoice.Id, MachineId: newBooking.MachineId, SlotsBooked: booking.Slots, TotalCost: totalAmount}
+
+	invoice = rsp
 
 	return
 }
 
-func (s *FarmService) GetAvailability(ctx context.Context, machineId uint) (slotsAvailable []uint, err error) {
+func (s *FarmService) GetAvailability(ctx context.Context, machineId uint, date string) (slotsAvailable []uint, err error) {
 
-	bookedSlots, err := s.store.GetBookedSlot(ctx, machineId)
+	bookedSlots, err := s.store.GetBookedSlot(ctx, machineId, date)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +163,7 @@ func (s *FarmService) GetAvailability(ctx context.Context, machineId uint) (slot
 	return
 }
 
-func (s *FarmService) GetAllBookings(ctx context.Context, farmerId uint) (bookings []db.Booking, err error) {
+func (s *FarmService) GetAllBookings(ctx context.Context, farmerId uint) (bookings []db.BookingResponse, err error) {
 	bookings, err = s.store.GetAllBookings(ctx, farmerId)
 	return
 }

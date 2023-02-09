@@ -22,7 +22,7 @@ func InitRouter(deps dependencies) (router *mux.Router) {
 
 	router.HandleFunc("/bookings", ValidateUser(bookingHandler(deps))).Methods(http.MethodPost)
 
-	router.HandleFunc("/availability/{id}", ValidateUser(availabilityHandler(deps))).Methods(http.MethodGet)
+	router.HandleFunc("/availability", ValidateUser(availabilityHandler(deps))).Methods(http.MethodPost)
 
 	router.HandleFunc("/bookings/", ValidateUser(getAllBookingsHandler(deps))).Methods(http.MethodGet)
 

@@ -21,8 +21,8 @@ type Storer interface {
 	BookSlot(context.Context, Slot) (err error)
 	GetBaseCharge(context.Context, uint) (baseCharge uint, err error)
 	GenrateInvoice(context.Context, Invoice) (invoiceId uint, err error)
-	GetBookedSlot(context.Context, uint) (map[uint]struct{}, error)
-	GetAllBookings(context.Context, uint) (bookings []Booking, err error)
+	GetBookedSlot(context.Context, uint, string) (map[uint]struct{}, error)
+	GetAllBookings(context.Context, uint) (bookings []BookingResponse, err error)
 }
 
 type Farmer struct {
@@ -61,6 +61,12 @@ type Invoice struct {
 	BookingId    uint   `db:"booking_id" json:"booking_id"`
 	DateGenrated string `db:"date_generated" json:"date_generated"`
 	Amount       uint   `db:"amount" json:"amount"`
+}
+
+type BookingResponse struct {
+	BookingId   uint   `json:"booking_id"`
+	MachineId   uint   `json:"machine_id"`
+	SlotsBooked []uint `json:"slots_booked"`
 }
 
 func (s *pgStore) RegisterFarmer(ctx context.Context, farmer Farmer) (addedFarmer Farmer, err error) {
@@ -183,9 +189,9 @@ func (s *pgStore) GenrateInvoice(ctx context.Context, newInvoice Invoice) (invoi
 
 }
 
-func (s *pgStore) GetBookedSlot(ctx context.Context, machineId uint) (map[uint]struct{}, error) {
+func (s *pgStore) GetBookedSlot(ctx context.Context, machineId uint, date string) (map[uint]struct{}, error) {
 
-	rows, err := s.db.QueryContext(ctx, "select s.slot_id from slots_booked s , bookings b where s.booking_id = b.id and b.machine_id = $1", machineId)
+	rows, err := s.db.QueryContext(ctx, "select s.slot_id from slots_booked s , bookings b where s.booking_id = b.id and b.machine_id = $1 and s.date = $2", machineId, date)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("error getting booked slots")
 		return nil, err
@@ -207,23 +213,45 @@ func (s *pgStore) GetBookedSlot(ctx context.Context, machineId uint) (map[uint]s
 	return bookedSlots, nil
 }
 
-func (s *pgStore) GetAllBookings(ctx context.Context, farmerId uint) (bookings []Booking, err error) {
+func (s *pgStore) GetAllBookings(ctx context.Context, farmerId uint) (bookings []BookingResponse, err error) {
 
-	rows, err := s.db.QueryContext(ctx, "SELECT * FROM bookings WHERE farmer_id = $1", farmerId)
+	rows, err := s.db.QueryContext(ctx, "SELECT id,machine_id FROM bookings WHERE farmer_id = $1", farmerId)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Error getting bookings")
 		return
 	}
 
 	for rows.Next() {
-		var booking Booking
-		err = rows.Scan(&booking.Id, &booking.FarmerId, &booking.MachineId)
+		var bookingId uint
+		var machineId uint
+		err = rows.Scan(&bookingId, &machineId)
 		if err != nil {
 			logger.WithField("err", err.Error()).Error("Error scanning bookings")
 			return
 		}
+		slotRows, err := s.db.QueryContext(ctx, "SELECT slot_id FROM slots_booked WHERE booking_id = $1", bookingId)
+		if err != nil {
+			logger.WithField("err", err.Error()).Error("Error getting slots for particular booking")
+			return nil, err
+		}
 
-		bookings = append(bookings, booking)
+		var slots []uint
+		for slotRows.Next() {
+			var slotId uint
+			err = slotRows.Scan(&slotId)
+			if err != nil {
+				logger.WithField("err", err.Error()).Error("Error scanning slots")
+				break
+			}
+			slots = append(slots, slotId)
+		}
+
+		subBooking := BookingResponse{
+			BookingId:   bookingId,
+			MachineId:   machineId,
+			SlotsBooked: slots,
+		}
+		bookings = append(bookings, subBooking)
 	}
 
 	return

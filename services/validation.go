@@ -1,6 +1,7 @@
 package services
 
 import (
+	"FarmEasy/api"
 	"context"
 	"errors"
 	"net/http"
@@ -67,12 +68,13 @@ func ValidateUser(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			http.Error(w, "Authorization header required", http.StatusUnauthorized)
+			api.Response(w, http.StatusUnauthorized, api.Message{Msg: "Authorization header required"})
 			return
 		}
 		farmerId, err := ValidateJWT(authHeader)
 		if err != nil {
-			http.Error(w, "Token is invalid", http.StatusUnauthorized)
+			api.Response(w, http.StatusUnauthorized, api.Message{Msg: "Token is invalid"})
+
 			return
 		}
 		ctx := context.WithValue(r.Context(), "token", farmerId)

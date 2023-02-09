@@ -7,9 +7,9 @@ import (
 	logger "github.com/sirupsen/logrus"
 )
 
-// type Response struct {
-// 	Message string `json:"message"`
-// }
+type Message struct {
+	Msg string `json:"message"`
+}
 
 func Response(w http.ResponseWriter, status int, response interface{}) {
 
