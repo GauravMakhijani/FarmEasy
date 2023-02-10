@@ -37,11 +37,11 @@ func (_m *Storer) AddBooking(_a0 context.Context, _a1 domain.Booking) (uint, err
 }
 
 // AddMachine provides a mock function with given fields: _a0, _a1
-func (_m *Storer) AddMachine(_a0 context.Context, _a1 domain.MachineResponse) error {
+func (_m *Storer) AddMachine(_a0 context.Context, _a1 *domain.MachineResponse) error {
 	ret := _m.Called(_a0, _a1)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, domain.MachineResponse) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *domain.MachineResponse) error); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
@@ -211,11 +211,11 @@ func (_m *Storer) LoginFarmer(_a0 context.Context, _a1 string, _a2 string) (uint
 }
 
 // RegisterFarmer provides a mock function with given fields: _a0, _a1
-func (_m *Storer) RegisterFarmer(_a0 context.Context, _a1 domain.FarmerResponse) error {
+func (_m *Storer) RegisterFarmer(_a0 context.Context, _a1 *domain.FarmerResponse) error {
 	ret := _m.Called(_a0, _a1)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, domain.FarmerResponse) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *domain.FarmerResponse) error); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)

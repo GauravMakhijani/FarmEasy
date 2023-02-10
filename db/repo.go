@@ -9,9 +9,9 @@ import (
 )
 
 type Storer interface {
-	RegisterFarmer(context.Context, domain.FarmerResponse) (err error)
+	RegisterFarmer(context.Context, *domain.FarmerResponse) (err error)
 	LoginFarmer(context.Context, string, string) (farmerId uint, err error)
-	AddMachine(context.Context, domain.MachineResponse) (err error)
+	AddMachine(context.Context, *domain.MachineResponse) (err error)
 	GetMachines(context.Context) (machines []domain.MachineResponse, err error)
 	IsEmptySlot(context.Context, uint, uint, string) (isEmpty bool)
 	AddBooking(context.Context, domain.Booking) (bookingId uint, err error)
@@ -22,7 +22,7 @@ type Storer interface {
 	GetAllBookings(context.Context, uint) (bookings []domain.BookingResponse, err error)
 }
 
-func (s *pgStore) RegisterFarmer(ctx context.Context, farmer domain.FarmerResponse) (err error) {
+func (s *pgStore) RegisterFarmer(ctx context.Context, farmer *domain.FarmerResponse) (err error) {
 	err = s.db.QueryRowContext(ctx, "INSERT INTO farmers (fname, lname, email, phone, address, password) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id", farmer.FirstName, farmer.LastName, farmer.Email, farmer.Phone, farmer.Address, farmer.Password).Scan(&farmer.Id)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Error inserting farmer")
@@ -43,7 +43,7 @@ func (s *pgStore) LoginFarmer(ctx context.Context, email string, password string
 	return
 }
 
-func (s *pgStore) AddMachine(ctx context.Context, newMachine domain.MachineResponse) (err error) {
+func (s *pgStore) AddMachine(ctx context.Context, newMachine *domain.MachineResponse) (err error) {
 
 	err = s.db.QueryRowContext(ctx, "INSERT INTO machines (name, description, base_hourly_charge, owner_id) VALUES ($1, $2, $3, $4) RETURNING id", newMachine.Name, newMachine.Description, newMachine.BaseHourlyCharge, newMachine.OwnerId).Scan(&newMachine.Id)
 	if err != nil {

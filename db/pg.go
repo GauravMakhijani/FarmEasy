@@ -28,6 +28,10 @@ type pgStore struct {
 	db *sqlx.DB
 }
 
+func NewPgStore(db *sqlx.DB) Storer {
+	return &pgStore{db}
+}
+
 func Init() (s Storer, err error) {
 	uri := config.ReadEnvString("DB_URI")
 
@@ -38,7 +42,8 @@ func Init() (s Storer, err error) {
 	}
 
 	logger.WithField("uri", uri).Info("Connected to pg database")
-	return &pgStore{conn}, nil
+	store := NewPgStore(conn)
+	return store, nil
 }
 
 func RunMigrations() (err error) {

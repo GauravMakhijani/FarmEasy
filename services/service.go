@@ -48,7 +48,7 @@ func (s *FarmService) Register(ctx context.Context, farmer domain.NewFarmerReque
 
 	newFarmer.Password = Hash_password(newFarmer.Password)
 
-	err = s.store.RegisterFarmer(ctx, newFarmer)
+	err = s.store.RegisterFarmer(ctx, &newFarmer)
 	return
 }
 func generateJWT(farmerId uint) (token string, err error) {
@@ -91,7 +91,7 @@ func (s *FarmService) AddMachine(ctx context.Context, machine domain.NewMachineR
 		BaseHourlyCharge: machine.BaseHourlyCharge,
 		OwnerId:          machine.OwnerId,
 	}
-	err = s.store.AddMachine(ctx, newMachine)
+	err = s.store.AddMachine(ctx, &newMachine)
 	return
 }
 

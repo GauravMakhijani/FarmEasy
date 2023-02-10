@@ -62,7 +62,7 @@ func (s *ServiceTestSuite) TestFarmService_Register() {
 			},
 			wantErr: false,
 			prepare: func(a args, s *mocks.Storer) {
-				s.On("RegisterFarmer", context.TODO(), mock.AnythingOfType("domain.FarmerResponse")).Return(nil).Once()
+				s.On("RegisterFarmer", context.TODO(), mock.Anything).Return(nil).Once()
 			},
 		},
 		{
@@ -80,7 +80,7 @@ func (s *ServiceTestSuite) TestFarmService_Register() {
 			},
 			wantErr: true,
 			prepare: func(a args, s *mocks.Storer) {
-				s.On("RegisterFarmer", context.TODO(), mock.AnythingOfType("domain.FarmerResponse")).Return(errors.New("mocked error")).Once()
+				s.On("RegisterFarmer", context.TODO(), mock.Anything).Return(errors.New("mocked error")).Once()
 			},
 		},
 	}
@@ -182,7 +182,7 @@ func (s *ServiceTestSuite) TestFarmService_AddMachine() {
 			},
 			wantErr: false,
 			prepare: func(a args, s *mocks.Storer) {
-				s.On("AddMachine", context.TODO(), mock.AnythingOfType("domain.MachineResponse")).Return(nil).Once()
+				s.On("AddMachine", context.TODO(), mock.Anything).Return(nil).Once()
 			},
 		},
 		{
@@ -197,7 +197,7 @@ func (s *ServiceTestSuite) TestFarmService_AddMachine() {
 			},
 			wantErr: true,
 			prepare: func(a args, s *mocks.Storer) {
-				s.On("AddMachine", context.TODO(), mock.AnythingOfType("domain.MachineResponse")).Return(errors.New("mocked error")).Once()
+				s.On("AddMachine", context.TODO(), mock.Anything).Return(errors.New("mocked error")).Once()
 			},
 		},
 	}

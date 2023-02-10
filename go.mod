@@ -14,6 +14,8 @@ require (
 	github.com/urfave/negroni v1.0.0
 )
 
+require github.com/zhashkevych/go-sqlxmock v1.5.1 // indirect
+
 require (
 	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
