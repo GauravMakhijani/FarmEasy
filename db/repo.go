@@ -1,6 +1,7 @@
 package db
 
 import (
+	"FarmEasy/domain"
 	"context"
 	"errors"
 
@@ -8,75 +9,25 @@ import (
 )
 
 type Storer interface {
-
-	//Create(context.Context, User) error
-	//GetUser(context.Context) (User, error)
-	//Delete(context.Context, string) error
-	RegisterFarmer(context.Context, Farmer) (addedFarmer Farmer, err error)
+	RegisterFarmer(context.Context, domain.FarmerResponse) (err error)
 	LoginFarmer(context.Context, string, string) (farmerId uint, err error)
-	AddMachine(context.Context, Machine) (addedMachine Machine, err error)
-	GetMachines(context.Context) (machines []Machine, err error)
+	AddMachine(context.Context, domain.MachineResponse) (err error)
+	GetMachines(context.Context) (machines []domain.MachineResponse, err error)
 	IsEmptySlot(context.Context, uint, uint, string) (isEmpty bool)
-	AddBooking(context.Context, Booking) (bookingId uint, err error)
-	BookSlot(context.Context, Slot) (err error)
+	AddBooking(context.Context, domain.Booking) (bookingId uint, err error)
+	BookSlot(context.Context, domain.Slot) (err error)
 	GetBaseCharge(context.Context, uint) (baseCharge uint, err error)
-	GenrateInvoice(context.Context, Invoice) (invoiceId uint, err error)
+	GenrateInvoice(context.Context, domain.Invoice) (invoiceId uint, err error)
 	GetBookedSlot(context.Context, uint, string) (map[uint]struct{}, error)
-	GetAllBookings(context.Context, uint) (bookings []BookingResponse, err error)
+	GetAllBookings(context.Context, uint) (bookings []domain.BookingResponse, err error)
 }
 
-type Farmer struct {
-	Id        uint   `db:"id" json:"id"`
-	FirstName string `db:"fname" json:"fname"`
-	LastName  string `db:"lname" json:"lname"`
-	Email     string `db:"email" json:"email"`
-	Phone     string `db:"phone" json:"phone"`
-	Address   string `db:"address" json:"address"`
-	Password  string `db:"password" json:"-"`
-}
-
-type Machine struct {
-	Id               uint   `db:"id" json:"id"`
-	Name             string `db:"name" json:"name"`
-	Description      string `db:"description" json:"description"`
-	BaseHourlyCharge uint   `db:"base_hourly_charge" json:"base_hourly_charge"`
-	OwnerId          uint   `db:"owner_id" json:"owner_id"`
-}
-
-type Booking struct {
-	Id        uint `db:"id" json:"id"`
-	MachineId uint `db:"machine_id" json:"machine_id"`
-	FarmerId  uint `db:"farmer_id" json:"farmer_id"`
-}
-
-type Slot struct {
-	Id        uint   `db:"id" json:"id"`
-	BookingId uint   `db:"booking_id" json:"booking_id"`
-	SlotId    uint   `db:"slot_number" json:"slot_number"`
-	Date      string `db:"date" json:"date"`
-}
-
-type Invoice struct {
-	Id           uint   `db:"id" json:"id"`
-	BookingId    uint   `db:"booking_id" json:"booking_id"`
-	DateGenrated string `db:"date_generated" json:"date_generated"`
-	Amount       uint   `db:"amount" json:"amount"`
-}
-
-type BookingResponse struct {
-	BookingId   uint   `json:"booking_id"`
-	MachineId   uint   `json:"machine_id"`
-	SlotsBooked []uint `json:"slots_booked"`
-}
-
-func (s *pgStore) RegisterFarmer(ctx context.Context, farmer Farmer) (addedFarmer Farmer, err error) {
+func (s *pgStore) RegisterFarmer(ctx context.Context, farmer domain.FarmerResponse) (err error) {
 	err = s.db.QueryRowContext(ctx, "INSERT INTO farmers (fname, lname, email, phone, address, password) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id", farmer.FirstName, farmer.LastName, farmer.Email, farmer.Phone, farmer.Address, farmer.Password).Scan(&farmer.Id)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Error inserting farmer")
 		return
 	}
-
-	addedFarmer = farmer
 
 	return
 }
@@ -92,21 +43,19 @@ func (s *pgStore) LoginFarmer(ctx context.Context, email string, password string
 	return
 }
 
-func (s *pgStore) AddMachine(ctx context.Context, machine Machine) (addedMachine Machine, err error) {
+func (s *pgStore) AddMachine(ctx context.Context, newMachine domain.MachineResponse) (err error) {
 
-	err = s.db.QueryRowContext(ctx, "INSERT INTO machines (name, description, base_hourly_charge, owner_id) VALUES ($1, $2, $3, $4) RETURNING id", machine.Name, machine.Description, machine.BaseHourlyCharge, machine.OwnerId).Scan(&machine.Id)
+	err = s.db.QueryRowContext(ctx, "INSERT INTO machines (name, description, base_hourly_charge, owner_id) VALUES ($1, $2, $3, $4) RETURNING id", newMachine.Name, newMachine.Description, newMachine.BaseHourlyCharge, newMachine.OwnerId).Scan(&newMachine.Id)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Error inserting machine")
 		return
 	}
 
-	addedMachine = machine
-
 	return
 
 }
 
-func (s *pgStore) GetMachines(ctx context.Context) (machines []Machine, err error) {
+func (s *pgStore) GetMachines(ctx context.Context) (machines []domain.MachineResponse, err error) {
 
 	rows, err := s.db.QueryContext(ctx, "SELECT * FROM machines")
 	if err != nil {
@@ -115,7 +64,7 @@ func (s *pgStore) GetMachines(ctx context.Context) (machines []Machine, err erro
 	}
 
 	for rows.Next() {
-		var machine Machine
+		var machine domain.MachineResponse
 		err = rows.Scan(&machine.Id, &machine.Name, &machine.Description, &machine.BaseHourlyCharge, &machine.OwnerId)
 		if err != nil {
 			logger.WithField("err", err.Error()).Error("Error scanning machines")
@@ -141,7 +90,7 @@ func (s *pgStore) IsEmptySlot(ctx context.Context, machineId uint, slotId uint, 
 	return
 }
 
-func (s *pgStore) AddBooking(ctx context.Context, booking Booking) (bookingId uint, err error) {
+func (s *pgStore) AddBooking(ctx context.Context, booking domain.Booking) (bookingId uint, err error) {
 
 	err = s.db.QueryRowContext(ctx, "INSERT INTO bookings (machine_id, farmer_id) VALUES ($1, $2) RETURNING id", booking.MachineId, booking.FarmerId).Scan(&bookingId)
 	if err != nil {
@@ -153,7 +102,7 @@ func (s *pgStore) AddBooking(ctx context.Context, booking Booking) (bookingId ui
 
 }
 
-func (s *pgStore) BookSlot(ctx context.Context, slot Slot) (err error) {
+func (s *pgStore) BookSlot(ctx context.Context, slot domain.Slot) (err error) {
 
 	_, err = s.db.ExecContext(ctx, "INSERT INTO slots_booked (booking_id, slot_id, date) VALUES ($1, $2, $3)", slot.BookingId, slot.SlotId, slot.Date)
 	if err != nil {
@@ -177,7 +126,7 @@ func (s *pgStore) GetBaseCharge(ctx context.Context, machineId uint) (baseCharge
 
 }
 
-func (s *pgStore) GenrateInvoice(ctx context.Context, newInvoice Invoice) (invoiceId uint, err error) {
+func (s *pgStore) GenrateInvoice(ctx context.Context, newInvoice domain.Invoice) (invoiceId uint, err error) {
 
 	err = s.db.QueryRowContext(ctx, "INSERT INTO invoices (booking_id, date_generated, total_amount) VALUES ($1, $2, $3) RETURNING id", newInvoice.BookingId, newInvoice.DateGenrated, newInvoice.Amount).Scan(&invoiceId)
 	if err != nil {
@@ -213,7 +162,7 @@ func (s *pgStore) GetBookedSlot(ctx context.Context, machineId uint, date string
 	return bookedSlots, nil
 }
 
-func (s *pgStore) GetAllBookings(ctx context.Context, farmerId uint) (bookings []BookingResponse, err error) {
+func (s *pgStore) GetAllBookings(ctx context.Context, farmerId uint) (bookings []domain.BookingResponse, err error) {
 
 	rows, err := s.db.QueryContext(ctx, "SELECT id,machine_id FROM bookings WHERE farmer_id = $1", farmerId)
 	if err != nil {
@@ -246,7 +195,7 @@ func (s *pgStore) GetAllBookings(ctx context.Context, farmerId uint) (bookings [
 			slots = append(slots, slotId)
 		}
 
-		subBooking := BookingResponse{
+		subBooking := domain.BookingResponse{
 			BookingId:   bookingId,
 			MachineId:   machineId,
 			SlotsBooked: slots,

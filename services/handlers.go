@@ -2,6 +2,7 @@ package services
 
 import (
 	"FarmEasy/api"
+	"FarmEasy/domain"
 	"encoding/json"
 	"net/http"
 )
@@ -14,7 +15,7 @@ type MsgResponse struct {
 func registerHandler(deps dependencies) http.HandlerFunc {
 
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		var farmer NewFarmer
+		var farmer domain.NewFarmerRequest
 		err := json.NewDecoder(req.Body).Decode(&farmer)
 		if err != nil {
 			api.Response(rw, http.StatusBadRequest, api.Message{Msg: err.Error()})
@@ -47,7 +48,7 @@ func registerHandler(deps dependencies) http.HandlerFunc {
 
 func loginHandler(deps dependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var fAuth LoginRequest
+		var fAuth domain.LoginRequest
 
 		if err := json.NewDecoder(r.Body).Decode(&fAuth); err != nil {
 			api.Response(w, http.StatusBadRequest, api.Message{Msg: err.Error()})
@@ -67,7 +68,7 @@ func loginHandler(deps dependencies) http.HandlerFunc {
 			return
 		}
 
-		rsp := LoginResponse{Message: "Login Successful", Token: tokenString}
+		rsp := domain.LoginResponse{Message: "Login Successful", Token: tokenString}
 
 		api.Response(w, http.StatusOK, rsp)
 
@@ -76,7 +77,7 @@ func loginHandler(deps dependencies) http.HandlerFunc {
 
 func addMachineHandler(deps dependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var machine NewMachine
+		var machine domain.NewMachineRequest
 		farmerId := r.Context().Value("token")
 
 		machine.OwnerId = farmerId.(uint)
@@ -114,7 +115,7 @@ func getMachineHandler(deps dependencies) http.HandlerFunc {
 func bookingHandler(deps dependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		var booking NewBookingRequest
+		var booking domain.NewBookingRequest
 		id := r.Context().Value("token")
 		farmerId := id.(uint)
 		booking.FarmerId = farmerId
@@ -147,7 +148,7 @@ func bookingHandler(deps dependencies) http.HandlerFunc {
 func availabilityHandler(deps dependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		var availability AvailabilityRequest
+		var availability domain.AvailabilityRequest
 		if err := json.NewDecoder(r.Body).Decode(&availability); err != nil {
 			api.Response(w, http.StatusBadRequest, api.Message{Msg: err.Error()})
 			return
@@ -158,7 +159,7 @@ func availabilityHandler(deps dependencies) http.HandlerFunc {
 			api.Response(w, http.StatusBadRequest, api.Message{Msg: err.Error()})
 			return
 		}
-		var availabilityResponse = AvailabilityResponse{MachineId: availability.MachineId, Date: availability.Date, SlotsAvailable: slotsAvailable}
+		var availabilityResponse = domain.AvailabilityResponse{MachineId: availability.MachineId, Date: availability.Date, SlotsAvailable: slotsAvailable}
 		api.Response(w, http.StatusOK, availabilityResponse)
 	}
 }

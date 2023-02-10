@@ -2,6 +2,7 @@ package services
 
 import (
 	"FarmEasy/db"
+	"FarmEasy/domain"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -15,13 +16,13 @@ import (
 var secretKey = []byte("I'mGoingToBeAGolangDeveloper")
 
 type Service interface {
-	Register(context.Context, NewFarmer) (addedFarmer db.Farmer, err error)
-	Login(context.Context, LoginRequest) (token string, err error)
-	AddMachine(context.Context, NewMachine) (addedMachine db.Machine, err error)
-	GetMachines(context.Context) (machines []db.Machine, err error)
-	BookMachine(context.Context, NewBookingRequest) (NewBookingResponse, error)
+	Register(context.Context, domain.NewFarmerRequest) (addedFarmer domain.FarmerResponse, err error)
+	Login(context.Context, domain.LoginRequest) (token string, err error)
+	AddMachine(context.Context, domain.NewMachineRequest) (addedMachine domain.MachineResponse, err error)
+	GetMachines(context.Context) (machines []domain.MachineResponse, err error)
+	BookMachine(context.Context, domain.NewBookingRequest) (domain.NewBookingResponse, error)
 	GetAvailability(context.Context, uint, string) (slotsAvailable []uint, err error)
-	GetAllBookings(context.Context, uint) (bookings []db.BookingResponse, err error)
+	GetAllBookings(context.Context, uint) (bookings []domain.BookingResponse, err error)
 }
 
 type FarmService struct {
@@ -34,9 +35,9 @@ func NewFarmService(s db.Storer) Service {
 	}
 }
 
-func (s *FarmService) Register(ctx context.Context, farmer NewFarmer) (addedFarmer db.Farmer, err error) {
+func (s *FarmService) Register(ctx context.Context, farmer domain.NewFarmerRequest) (newFarmer domain.FarmerResponse, err error) {
 
-	newFarmer := db.Farmer{
+	newFarmer = domain.FarmerResponse{
 		FirstName: farmer.FirstName,
 		LastName:  farmer.LastName,
 		Email:     farmer.Email,
@@ -47,7 +48,7 @@ func (s *FarmService) Register(ctx context.Context, farmer NewFarmer) (addedFarm
 
 	newFarmer.Password = Hash_password(newFarmer.Password)
 
-	addedFarmer, err = s.store.RegisterFarmer(ctx, newFarmer)
+	err = s.store.RegisterFarmer(ctx, newFarmer)
 	return
 }
 func generateJWT(farmerId uint) (token string, err error) {
@@ -69,7 +70,7 @@ func Hash_password(password string) (hash string) {
 	return
 }
 
-func (s *FarmService) Login(ctx context.Context, fAuth LoginRequest) (token string, err error) {
+func (s *FarmService) Login(ctx context.Context, fAuth domain.LoginRequest) (token string, err error) {
 	var farmerId uint
 	fAuth.Password = Hash_password(fAuth.Password)
 	farmerId, err = s.store.LoginFarmer(ctx, fAuth.Email, fAuth.Password)
@@ -83,23 +84,23 @@ func (s *FarmService) Login(ctx context.Context, fAuth LoginRequest) (token stri
 	}
 	return
 }
-func (s *FarmService) AddMachine(ctx context.Context, machine NewMachine) (addedMachine db.Machine, err error) {
-	newMachine := db.Machine{
+func (s *FarmService) AddMachine(ctx context.Context, machine domain.NewMachineRequest) (newMachine domain.MachineResponse, err error) {
+	newMachine = domain.MachineResponse{
 		Name:             machine.Name,
 		Description:      machine.Description,
 		BaseHourlyCharge: machine.BaseHourlyCharge,
 		OwnerId:          machine.OwnerId,
 	}
-	addedMachine, err = s.store.AddMachine(ctx, newMachine)
+	err = s.store.AddMachine(ctx, newMachine)
 	return
 }
 
-func (s *FarmService) GetMachines(ctx context.Context) (machines []db.Machine, err error) {
+func (s *FarmService) GetMachines(ctx context.Context) (machines []domain.MachineResponse, err error) {
 	machines, err = s.store.GetMachines(ctx)
 	return
 }
 
-func (s *FarmService) BookMachine(ctx context.Context, booking NewBookingRequest) (invoice NewBookingResponse, err error) {
+func (s *FarmService) BookMachine(ctx context.Context, booking domain.NewBookingRequest) (invoice domain.NewBookingResponse, err error) {
 
 	for _, slot := range booking.Slots {
 		empty := s.store.IsEmptySlot(ctx, booking.MachineId, slot, booking.Date)
@@ -110,7 +111,7 @@ func (s *FarmService) BookMachine(ctx context.Context, booking NewBookingRequest
 		}
 	}
 
-	newBooking := db.Booking{
+	newBooking := domain.Booking{
 		MachineId: booking.MachineId,
 		FarmerId:  booking.FarmerId,
 	}
@@ -119,7 +120,7 @@ func (s *FarmService) BookMachine(ctx context.Context, booking NewBookingRequest
 		return
 	}
 	for _, slot := range booking.Slots {
-		newSlot := db.Slot{
+		newSlot := domain.Slot{
 			BookingId: newBooking.Id,
 			SlotId:    slot,
 			Date:      booking.Date,
@@ -134,14 +135,14 @@ func (s *FarmService) BookMachine(ctx context.Context, booking NewBookingRequest
 		return
 	}
 	totalAmount := uint(len(booking.Slots)) * baseCharge
-	newInvoice := db.Invoice{
+	newInvoice := domain.Invoice{
 		BookingId:    newBooking.Id,
 		DateGenrated: time.Now().Format("2006-01-02"),
 		Amount:       totalAmount,
 	}
 	newInvoice.Id, err = s.store.GenrateInvoice(ctx, newInvoice)
 
-	rsp := NewBookingResponse{InvoiceId: newInvoice.Id, MachineId: newBooking.MachineId, SlotsBooked: booking.Slots, TotalCost: totalAmount}
+	rsp := domain.NewBookingResponse{InvoiceId: newInvoice.Id, MachineId: newBooking.MachineId, SlotsBooked: booking.Slots, TotalCost: totalAmount}
 
 	invoice = rsp
 
@@ -163,7 +164,7 @@ func (s *FarmService) GetAvailability(ctx context.Context, machineId uint, date 
 	return
 }
 
-func (s *FarmService) GetAllBookings(ctx context.Context, farmerId uint) (bookings []db.BookingResponse, err error) {
+func (s *FarmService) GetAllBookings(ctx context.Context, farmerId uint) (bookings []domain.BookingResponse, err error) {
 	bookings, err = s.store.GetAllBookings(ctx, farmerId)
 	return
 }
