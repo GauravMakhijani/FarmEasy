@@ -24,7 +24,9 @@ func InitRouter(deps dependencies) (router *mux.Router) {
 
 	router.HandleFunc("/availability", ValidateUser(availabilityHandler(deps))).Methods(http.MethodPost)
 
-	router.HandleFunc("/bookings/", ValidateUser(getAllBookingsHandler(deps))).Methods(http.MethodGet)
+	router.HandleFunc("/bookings", ValidateUser(getAllBookingsHandler(deps))).Methods(http.MethodGet)
+
+	router.HandleFunc("/slots", ValidateUser(getAllSlotsHandler(deps))).Methods(http.MethodGet)
 
 	return
 }

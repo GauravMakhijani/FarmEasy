@@ -176,3 +176,14 @@ func getAllBookingsHandler(deps dependencies) http.HandlerFunc {
 		api.Response(w, http.StatusOK, bookings)
 	}
 }
+
+func getAllSlotsHandler(deps dependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slots, err := deps.FarmService.GetAllSlots(r.Context())
+		if err != nil {
+			api.Response(w, http.StatusBadRequest, api.Message{Msg: err.Error()})
+			return
+		}
+		api.Response(w, http.StatusOK, slots)
+	}
+}

@@ -95,3 +95,9 @@ type BookingResponse struct {
 	MachineId   uint   `json:"machine_id"`
 	SlotsBooked []uint `json:"slots_booked"`
 }
+
+type SlotResponse struct {
+	SlotId    uint   `json:"slot_id"`
+	StartTime string `json:"start_time"`
+	EndTime   string `json:"end_time"`
+}

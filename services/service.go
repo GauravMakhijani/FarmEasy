@@ -1,6 +1,7 @@
 package services
 
 import (
+	"FarmEasy/constant"
 	"FarmEasy/db"
 	"FarmEasy/domain"
 	"context"
@@ -23,6 +24,7 @@ type Service interface {
 	BookMachine(context.Context, domain.NewBookingRequest) (domain.NewBookingResponse, error)
 	GetAvailability(context.Context, uint, string) (slotsAvailable []uint, err error)
 	GetAllBookings(context.Context, uint) (bookings []domain.BookingResponse, err error)
+	GetAllSlots(context.Context) (slots []domain.SlotResponse, err error)
 }
 
 type FarmService struct {
@@ -166,5 +168,14 @@ func (s *FarmService) GetAvailability(ctx context.Context, machineId uint, date 
 
 func (s *FarmService) GetAllBookings(ctx context.Context, farmerId uint) (bookings []domain.BookingResponse, err error) {
 	bookings, err = s.store.GetAllBookings(ctx, farmerId)
+	return
+}
+
+func (s *FarmService) GetAllSlots(ctx context.Context) (slots []domain.SlotResponse, err error) {
+	for i := 1; i <= 24; i++ {
+		slots = append(slots, domain.SlotResponse{SlotId: uint(i),
+			StartTime: constant.Slots[uint(i)].StartTime,
+			EndTime:   constant.Slots[uint(i)].EndTime})
+	}
 	return
 }
