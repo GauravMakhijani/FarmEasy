@@ -81,7 +81,6 @@ func (s *pgStore) IsEmptySlot(ctx context.Context, machineId uint, slotId uint, 
 
 	err := s.db.QueryRowContext(ctx, "SELECT slots_booked.id FROM slots_booked, bookings WHERE bookings.id = slots_booked.booking_id and  bookings.machine_id = $1 and slot_id = $2 and date = $3", machineId, slotId, date).Scan(&slotId)
 	if err != nil {
-		// logger.WithField("err", err.Error()).Error("Error checking slot")
 		isEmpty = true
 		return
 	}
