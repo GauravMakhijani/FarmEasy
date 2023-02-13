@@ -39,7 +39,7 @@ RUN go build -o /farmeasy-build-file
 
 
 
-FROM gcr.io/distroless/base-debian10
+FROM alpine
 
 WORKDIR /
 
