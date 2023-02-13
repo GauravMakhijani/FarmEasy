@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -37,22 +36,6 @@ func NewFarmService(s db.Storer) Service {
 	}
 }
 
-func (s *FarmService) Register(ctx context.Context, farmer domain.NewFarmerRequest) (newFarmer domain.FarmerResponse, err error) {
-
-	newFarmer = domain.FarmerResponse{
-		FirstName: farmer.FirstName,
-		LastName:  farmer.LastName,
-		Email:     farmer.Email,
-		Phone:     farmer.Phone,
-		Address:   farmer.Address,
-		Password:  farmer.Password,
-	}
-
-	newFarmer.Password = Hash_password(newFarmer.Password)
-
-	err = s.store.RegisterFarmer(ctx, &newFarmer)
-	return
-}
 func generateJWT(farmerId uint) (token string, err error) {
 	tokenExpirationTime := time.Now().Add(time.Hour * 24)
 	tokenObject := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -72,16 +55,52 @@ func Hash_password(password string) (hash string) {
 	return
 }
 
+func (s *FarmService) Register(ctx context.Context, farmer domain.NewFarmerRequest) (newFarmer domain.FarmerResponse, err error) {
+
+	newFarmer = domain.FarmerResponse{
+		FirstName: farmer.FirstName,
+		LastName:  farmer.LastName,
+		Email:     farmer.Email,
+		Phone:     farmer.Phone,
+		Address:   farmer.Address,
+		Password:  farmer.Password,
+	}
+
+	newFarmer.Password = Hash_password(newFarmer.Password)
+
+	err = s.store.RegisterFarmer(ctx, &newFarmer)
+	if err != nil {
+		logrus.WithField("err", err.Error()).Error("error registering farmer")
+		if err.Error() == "pq: duplicate key value violates unique constraint \"farmers_email_key\"" {
+			err = ErrDuplicateEmail
+			return
+		}
+		if err.Error() == "pq: duplicate key value violates unique constraint \"farmers_phone_key\"" {
+			err = ErrDuplicatePhone
+		}
+		return
+
+	}
+
+	return
+}
+
 func (s *FarmService) Login(ctx context.Context, fAuth domain.LoginRequest) (token string, err error) {
 	var farmerId uint
 	fAuth.Password = Hash_password(fAuth.Password)
 	farmerId, err = s.store.LoginFarmer(ctx, fAuth.Email, fAuth.Password)
 	if err != nil {
+		logrus.WithField("err", err.Error()).Error("error login farmer")
+		if err.Error() == "sql: no rows in result set" {
+			err = ErrUnauthorized
+		}
 		return
 	}
 
 	token, err = generateJWT(farmerId)
 	if err != nil {
+		logrus.WithField("err", err.Error()).Error("error generating fwt token for farmer")
+
 		return
 	}
 	return
@@ -104,50 +123,7 @@ func (s *FarmService) GetMachines(ctx context.Context) (machines []domain.Machin
 
 func (s *FarmService) BookMachine(ctx context.Context, booking domain.NewBookingRequest) (invoice domain.NewBookingResponse, err error) {
 
-	for _, slot := range booking.Slots {
-		empty := s.store.IsEmptySlot(ctx, booking.MachineId, slot, booking.Date)
-		if !empty {
-
-			err = errors.New("slot not empty")
-			return
-		}
-	}
-
-	newBooking := domain.Booking{
-		MachineId: booking.MachineId,
-		FarmerId:  booking.FarmerId,
-	}
-	newBooking.Id, err = s.store.AddBooking(ctx, newBooking)
-	if err != nil {
-		return
-	}
-	for _, slot := range booking.Slots {
-		newSlot := domain.Slot{
-			BookingId: newBooking.Id,
-			SlotId:    slot,
-			Date:      booking.Date,
-		}
-		err = s.store.BookSlot(ctx, newSlot)
-		if err != nil {
-			return
-		}
-	}
-	baseCharge, err := s.store.GetBaseCharge(ctx, booking.MachineId)
-	if err != nil {
-		return
-	}
-	totalAmount := uint(len(booking.Slots)) * baseCharge
-	newInvoice := domain.Invoice{
-		BookingId:    newBooking.Id,
-		DateGenrated: time.Now().Format("2006-01-02"),
-		Amount:       totalAmount,
-	}
-	newInvoice.Id, err = s.store.GenrateInvoice(ctx, newInvoice)
-
-	rsp := domain.NewBookingResponse{InvoiceId: newInvoice.Id, MachineId: newBooking.MachineId, SlotsBooked: booking.Slots, TotalCost: totalAmount}
-
-	invoice = rsp
-
+	invoice, err = s.store.Book(ctx, booking)
 	return
 }
 

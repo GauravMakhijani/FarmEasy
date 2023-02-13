@@ -4,6 +4,7 @@ import (
 	"FarmEasy/domain"
 	"context"
 	"errors"
+	"time"
 
 	logger "github.com/sirupsen/logrus"
 )
@@ -20,6 +21,7 @@ type Storer interface {
 	GenrateInvoice(context.Context, domain.Invoice) (invoiceId uint, err error)
 	GetBookedSlot(context.Context, uint, string) (map[uint]struct{}, error)
 	GetAllBookings(context.Context, uint) (bookings []domain.BookingResponse, err error)
+	Book(context.Context, domain.NewBookingRequest) (invoice domain.NewBookingResponse, err error)
 }
 
 func (s *pgStore) RegisterFarmer(ctx context.Context, farmer *domain.FarmerResponse) (err error) {
@@ -201,6 +203,65 @@ func (s *pgStore) GetAllBookings(ctx context.Context, farmerId uint) (bookings [
 		}
 		bookings = append(bookings, subBooking)
 	}
+
+	return
+}
+
+func (s *pgStore) Book(ctx context.Context, booking domain.NewBookingRequest) (invoice domain.NewBookingResponse, err error) {
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return
+	}
+	for _, slot := range booking.Slots {
+		empty := s.IsEmptySlot(ctx, booking.MachineId, slot, booking.Date)
+		if !empty {
+			err = errors.New("slot not empty")
+			tx.Rollback()
+			return
+		}
+	}
+
+	newBooking := domain.Booking{
+		MachineId: booking.MachineId,
+		FarmerId:  booking.FarmerId,
+	}
+	newBooking.Id, err = s.AddBooking(ctx, newBooking)
+	if err != nil {
+		tx.Rollback()
+		return
+	}
+	for _, slot := range booking.Slots {
+		newSlot := domain.Slot{
+			BookingId: newBooking.Id,
+			SlotId:    slot,
+			Date:      booking.Date,
+		}
+		err = s.BookSlot(ctx, newSlot)
+		if err != nil {
+			tx.Rollback()
+			return
+		}
+	}
+	baseCharge, err := s.GetBaseCharge(ctx, booking.MachineId)
+	if err != nil {
+		tx.Rollback()
+		return
+	}
+	totalAmount := uint(len(booking.Slots)) * baseCharge
+	newInvoice := domain.Invoice{
+		BookingId:    newBooking.Id,
+		DateGenrated: time.Now().Format("2006-01-02"),
+		Amount:       totalAmount,
+	}
+	newInvoice.Id, err = s.GenrateInvoice(ctx, newInvoice)
+	if err != nil {
+		tx.Rollback()
+		return
+	}
+
+	rsp := domain.NewBookingResponse{InvoiceId: newInvoice.Id, MachineId: newBooking.MachineId, SlotsBooked: booking.Slots, TotalCost: totalAmount}
+
+	invoice = rsp
 
 	return
 }

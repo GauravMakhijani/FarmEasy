@@ -21,11 +21,34 @@ A user is farmer who can list his farming instruments on the portal to rent and 
 - farmer is able to rent the machine from the web application
 - farmer is able to get the invoice for booking
 
+## [Api specification](https://docs.google.com/document/d/1LWpB_4gvnwUaYkubR511bj_4SYm0HcvGXmhwwKXOBBQ/edit?usp=sharing)
+
+## DB schema
+
+![db-schema](/db-schema.png)
+
 ## How to start
 
+- Download and setup Postgresql
+
+- create farmeasy database
+
+- Setup DB URI in application.yml file
+
+```console
+DB_URI: "postgresql://username:password@localhost:5432/farmeasy?sslmode=disable"
+```
+
 - execute
-  `go build`
-  `./FarmEasy migrate`
-  `./FarmEasy start`
+
+```console
+go build
+./FarmEasy migrate
+./FarmEasy start
+```
+
 - To run testcases
-  `go test ./...`
+
+```console
+go test ./...
+```
