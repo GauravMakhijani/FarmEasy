@@ -44,6 +44,7 @@ FROM ubuntu
 WORKDIR /
 
 COPY --from=build /farmeasy-build-file /farmeasy-build-file
+COPY ./migrations/* /migrations
 
 EXPOSE 3000
 
