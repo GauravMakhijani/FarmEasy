@@ -24,8 +24,23 @@ type Storer interface {
 	Book(context.Context, domain.NewBookingRequest) (invoice domain.NewBookingResponse, err error)
 }
 
+const (
+	registerFarmerQuery      = "INSERT INTO farmers (fname, lname, email, phone, address, password) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
+	loginQuery               = "SELECT id FROM farmers WHERE email = $1 and password = $2"
+	insertMachineQuery       = "INSERT INTO machines (name, description, base_hourly_charge, owner_id) VALUES ($1, $2, $3, $4) RETURNING id"
+	getMachinesQuery         = "SELECT * FROM machines"
+	checkSlotQuery           = "SELECT slots_booked.id FROM slots_booked, bookings WHERE bookings.id = slots_booked.booking_id and  bookings.machine_id = $1 and slot_id = $2 and date = $3"
+	addBookingQuery          = "INSERT INTO bookings (machine_id, farmer_id) VALUES ($1, $2) RETURNING id"
+	bookSlotQuery            = "INSERT INTO slots_booked (booking_id, slot_id, date) VALUES ($1, $2, $3)"
+	getChargeQuery           = "SELECT base_hourly_charge FROM machines WHERE id = $1"
+	generateInvoiceQuery     = "INSERT INTO invoices (booking_id, date_generated, total_amount) VALUES ($1, $2, $3) RETURNING id"
+	getBookedSlotQuery       = "select s.slot_id from slots_booked s , bookings b where s.booking_id = b.id and b.machine_id = $1 and s.date = $2"
+	getBookingsQuery         = "SELECT id,machine_id FROM bookings WHERE farmer_id = $1"
+	getSlotsByBookingIdQuery = "SELECT slot_id FROM slots_booked WHERE booking_id = $1"
+)
+
 func (s *pgStore) RegisterFarmer(ctx context.Context, farmer *domain.FarmerResponse) (err error) {
-	err = s.db.QueryRowContext(ctx, "INSERT INTO farmers (fname, lname, email, phone, address, password) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id", farmer.FirstName, farmer.LastName, farmer.Email, farmer.Phone, farmer.Address, farmer.Password).Scan(&farmer.Id)
+	err = s.db.QueryRowContext(ctx, registerFarmerQuery, farmer.FirstName, farmer.LastName, farmer.Email, farmer.Phone, farmer.Address, farmer.Password).Scan(&farmer.Id)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Error inserting farmer")
 		return
@@ -36,7 +51,7 @@ func (s *pgStore) RegisterFarmer(ctx context.Context, farmer *domain.FarmerRespo
 
 func (s *pgStore) LoginFarmer(ctx context.Context, email string, password string) (farmerId uint, err error) {
 
-	err = s.db.QueryRowContext(ctx, "SELECT id FROM farmers WHERE email = $1 and password = $2", email, password).Scan(&farmerId)
+	err = s.db.QueryRowContext(ctx, loginQuery, email, password).Scan(&farmerId)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Error incorrect email or password")
 		return
@@ -47,7 +62,7 @@ func (s *pgStore) LoginFarmer(ctx context.Context, email string, password string
 
 func (s *pgStore) AddMachine(ctx context.Context, newMachine *domain.MachineResponse) (err error) {
 
-	err = s.db.QueryRowContext(ctx, "INSERT INTO machines (name, description, base_hourly_charge, owner_id) VALUES ($1, $2, $3, $4) RETURNING id", newMachine.Name, newMachine.Description, newMachine.BaseHourlyCharge, newMachine.OwnerId).Scan(&newMachine.Id)
+	err = s.db.QueryRowContext(ctx, insertMachineQuery, newMachine.Name, newMachine.Description, newMachine.BaseHourlyCharge, newMachine.OwnerId).Scan(&newMachine.Id)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Error inserting machine")
 		return
@@ -59,7 +74,7 @@ func (s *pgStore) AddMachine(ctx context.Context, newMachine *domain.MachineResp
 
 func (s *pgStore) GetMachines(ctx context.Context) (machines []domain.MachineResponse, err error) {
 
-	rows, err := s.db.QueryContext(ctx, "SELECT * FROM machines")
+	rows, err := s.db.QueryContext(ctx, getMachinesQuery)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Error getting machines")
 		return
@@ -81,7 +96,7 @@ func (s *pgStore) GetMachines(ctx context.Context) (machines []domain.MachineRes
 
 func (s *pgStore) IsEmptySlot(ctx context.Context, machineId uint, slotId uint, date string) (isEmpty bool) {
 
-	err := s.db.QueryRowContext(ctx, "SELECT slots_booked.id FROM slots_booked, bookings WHERE bookings.id = slots_booked.booking_id and  bookings.machine_id = $1 and slot_id = $2 and date = $3", machineId, slotId, date).Scan(&slotId)
+	err := s.db.QueryRowContext(ctx, checkSlotQuery, machineId, slotId, date).Scan(&slotId)
 	if err != nil {
 		isEmpty = true
 		return
@@ -93,7 +108,7 @@ func (s *pgStore) IsEmptySlot(ctx context.Context, machineId uint, slotId uint, 
 
 func (s *pgStore) AddBooking(ctx context.Context, booking domain.Booking) (bookingId uint, err error) {
 
-	err = s.db.QueryRowContext(ctx, "INSERT INTO bookings (machine_id, farmer_id) VALUES ($1, $2) RETURNING id", booking.MachineId, booking.FarmerId).Scan(&bookingId)
+	err = s.db.QueryRowContext(ctx, addBookingQuery, booking.MachineId, booking.FarmerId).Scan(&bookingId)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Error inserting booking")
 		return
@@ -105,7 +120,7 @@ func (s *pgStore) AddBooking(ctx context.Context, booking domain.Booking) (booki
 
 func (s *pgStore) BookSlot(ctx context.Context, slot domain.Slot) (err error) {
 
-	_, err = s.db.ExecContext(ctx, "INSERT INTO slots_booked (booking_id, slot_id, date) VALUES ($1, $2, $3)", slot.BookingId, slot.SlotId, slot.Date)
+	_, err = s.db.ExecContext(ctx, bookSlotQuery, slot.BookingId, slot.SlotId, slot.Date)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Error booking slot")
 		return
@@ -117,7 +132,7 @@ func (s *pgStore) BookSlot(ctx context.Context, slot domain.Slot) (err error) {
 
 func (s *pgStore) GetBaseCharge(ctx context.Context, machineId uint) (baseCharge uint, err error) {
 
-	err = s.db.QueryRowContext(ctx, "SELECT base_hourly_charge FROM machines WHERE id = $1", machineId).Scan(&baseCharge)
+	err = s.db.QueryRowContext(ctx, getChargeQuery, machineId).Scan(&baseCharge)
 	if err != nil {
 		err = errors.New("error getting base charge")
 		return
@@ -129,7 +144,7 @@ func (s *pgStore) GetBaseCharge(ctx context.Context, machineId uint) (baseCharge
 
 func (s *pgStore) GenrateInvoice(ctx context.Context, newInvoice domain.Invoice) (invoiceId uint, err error) {
 
-	err = s.db.QueryRowContext(ctx, "INSERT INTO invoices (booking_id, date_generated, total_amount) VALUES ($1, $2, $3) RETURNING id", newInvoice.BookingId, newInvoice.DateGenrated, newInvoice.Amount).Scan(&invoiceId)
+	err = s.db.QueryRowContext(ctx, generateInvoiceQuery, newInvoice.BookingId, newInvoice.DateGenrated, newInvoice.Amount).Scan(&invoiceId)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Error generating invoice")
 		return
@@ -141,7 +156,7 @@ func (s *pgStore) GenrateInvoice(ctx context.Context, newInvoice domain.Invoice)
 
 func (s *pgStore) GetBookedSlot(ctx context.Context, machineId uint, date string) (map[uint]struct{}, error) {
 
-	rows, err := s.db.QueryContext(ctx, "select s.slot_id from slots_booked s , bookings b where s.booking_id = b.id and b.machine_id = $1 and s.date = $2", machineId, date)
+	rows, err := s.db.QueryContext(ctx, getBookedSlotQuery, machineId, date)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("error getting booked slots")
 		return nil, err
@@ -165,7 +180,7 @@ func (s *pgStore) GetBookedSlot(ctx context.Context, machineId uint, date string
 
 func (s *pgStore) GetAllBookings(ctx context.Context, farmerId uint) (bookings []domain.BookingResponse, err error) {
 
-	rows, err := s.db.QueryContext(ctx, "SELECT id,machine_id FROM bookings WHERE farmer_id = $1", farmerId)
+	rows, err := s.db.QueryContext(ctx, getBookingsQuery, farmerId)
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Error getting bookings")
 		return
@@ -179,7 +194,7 @@ func (s *pgStore) GetAllBookings(ctx context.Context, farmerId uint) (bookings [
 			logger.WithField("err", err.Error()).Error("Error scanning bookings")
 			return
 		}
-		slotRows, err := s.db.QueryContext(ctx, "SELECT slot_id FROM slots_booked WHERE booking_id = $1", bookingId)
+		slotRows, err := s.db.QueryContext(ctx, getSlotsByBookingIdQuery, bookingId)
 		if err != nil {
 			logger.WithField("err", err.Error()).Error("Error getting slots for particular booking")
 			return nil, err
