@@ -79,6 +79,29 @@ func (_m *Service) GetAllBookings(_a0 context.Context, _a1 uint) ([]domain.Booki
 	return r0, r1
 }
 
+// GetAllSlots provides a mock function with given fields: _a0
+func (_m *Service) GetAllSlots(_a0 context.Context) ([]domain.SlotResponse, error) {
+	ret := _m.Called(_a0)
+
+	var r0 []domain.SlotResponse
+	if rf, ok := ret.Get(0).(func(context.Context) []domain.SlotResponse); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.SlotResponse)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetAvailability provides a mock function with given fields: _a0, _a1, _a2
 func (_m *Service) GetAvailability(_a0 context.Context, _a1 uint, _a2 string) ([]uint, error) {
 	ret := _m.Called(_a0, _a1, _a2)
