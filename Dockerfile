@@ -47,4 +47,4 @@ COPY --from=build /farmeasy-build-file /farmeasy-build-file
 
 EXPOSE 3000
 
-CMD ["/farmeasy-build-file", "start"]
+CMD ["bash", "/secrets/run"]
