@@ -39,7 +39,7 @@ RUN go build -o /farmeasy-build-file
 
 
 
-FROM alpine
+FROM ubuntu
 
 WORKDIR /
 
