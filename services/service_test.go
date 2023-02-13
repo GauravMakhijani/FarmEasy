@@ -48,7 +48,7 @@ func (s *ServiceTestSuite) TestFarmService_Register() {
 	}{
 		// TODO: Add test cases.
 		{
-			name: "positiveTest",
+			name: "when the farmer data is valid",
 			args: args{
 				ctx: context.TODO(),
 				farmer: domain.NewFarmerRequest{
@@ -66,7 +66,7 @@ func (s *ServiceTestSuite) TestFarmService_Register() {
 			},
 		},
 		{
-			name: "NegativeTest",
+			name: "when repo layer returns error",
 			args: args{
 				ctx: context.TODO(),
 				farmer: domain.NewFarmerRequest{
@@ -81,6 +81,42 @@ func (s *ServiceTestSuite) TestFarmService_Register() {
 			wantErr: true,
 			prepare: func(a args, s *mocks.Storer) {
 				s.On("RegisterFarmer", context.TODO(), mock.Anything).Return(errors.New("mocked error")).Once()
+			},
+		},
+		{
+			name: "when the farmer phone number already exist",
+			args: args{
+				ctx: context.TODO(),
+				farmer: domain.NewFarmerRequest{
+					FirstName: "John",
+					LastName:  "Doe",
+					Email:     "john@gmail.com",
+					Phone:     "1234567", ///wrong phone number
+					Password:  "password",
+					Address:   "1234, abc street, xyz city",
+				},
+			},
+			wantErr: true,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("RegisterFarmer", context.TODO(), mock.Anything).Return(errors.New("pq: duplicate key value violates unique constraint \"farmers_email_key\"")).Once()
+			},
+		},
+		{
+			name: "when the farmer email already exist",
+			args: args{
+				ctx: context.TODO(),
+				farmer: domain.NewFarmerRequest{
+					FirstName: "John",
+					LastName:  "Doe",
+					Email:     "john@gmail.com",
+					Phone:     "1234567", ///wrong phone number
+					Password:  "password",
+					Address:   "1234, abc street, xyz city",
+				},
+			},
+			wantErr: true,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("RegisterFarmer", context.TODO(), mock.Anything).Return(errors.New("pq: duplicate key value violates unique constraint \"farmers_phone_key\"")).Once()
 			},
 		},
 	}
@@ -114,7 +150,7 @@ func (s *ServiceTestSuite) TestFarmService_Login() {
 	}{
 		// TODO: Add test cases.
 		{
-			name: "positiveTest",
+			name: "when login request is valid",
 			args: args{
 				ctx: context.TODO(),
 				fAuth: domain.LoginRequest{
@@ -125,10 +161,11 @@ func (s *ServiceTestSuite) TestFarmService_Login() {
 			wantErr: false,
 			prepare: func(a args, s *mocks.Storer) {
 				s.On("LoginFarmer", context.TODO(), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(uint(1), nil).Once()
+
 			},
 		},
 		{
-			name: "negativeTest",
+			name: "when there is repo layer error",
 			args: args{
 				ctx: context.TODO(),
 				fAuth: domain.LoginRequest{
@@ -139,6 +176,20 @@ func (s *ServiceTestSuite) TestFarmService_Login() {
 			wantErr: true,
 			prepare: func(a args, s *mocks.Storer) {
 				s.On("LoginFarmer", context.TODO(), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(uint(1), errors.New("mocked error")).Once()
+			},
+		},
+		{
+			name: "when either username or password is incorrect",
+			args: args{
+				ctx: context.TODO(),
+				fAuth: domain.LoginRequest{
+					Email:    "john@gmail.com",
+					Password: "password",
+				},
+			},
+			wantErr: true,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("LoginFarmer", context.TODO(), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(uint(1), errors.New("sql: no rows in result set")).Once()
 			},
 		},
 	}
@@ -288,7 +339,7 @@ func (s *ServiceTestSuite) TestFarmService_BookMachine() {
 			},
 			wantErr: false,
 			prepare: func(a args, s *mocks.Storer) {
-				s.On("AddBooking", context.TODO(), mock.AnythingOfType("domain.Booking")).Return(uint(1), nil).Once()
+				s.On("Book", context.TODO(), mock.AnythingOfType("domain.NewBookingRequest")).Return(domain.NewBookingResponse{}, nil).Once()
 			},
 		},
 	}
@@ -398,6 +449,51 @@ func (s *ServiceTestSuite) TestFarmService_GetAllBookings() {
 				require.NoError(t, err)
 			}
 			assert.IsType(t, []domain.BookingResponse{}, gotBookings)
+		})
+	}
+}
+
+func (s *ServiceTestSuite) TestFarmService_GetAllSlots() {
+	t := s.T()
+	type args struct {
+		ctx context.Context
+	}
+	tests := []struct {
+		name      string
+		args      args
+		wantSlots []domain.SlotResponse
+		wantErr   bool
+	}{
+		// TODO: Add test cases.
+		{
+			name: "positiveTest",
+			args: args{
+				ctx: context.TODO(),
+			},
+			wantSlots: []domain.SlotResponse{
+				{
+					SlotId:    1,
+					StartTime: "10:00",
+					EndTime:   "11:00",
+				},
+				{
+					SlotId:    2,
+					StartTime: "11:00",
+					EndTime:   "12:00",
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			gotSlots, err := s.service.GetAllSlots(tt.args.ctx)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			assert.IsType(t, []domain.SlotResponse{}, gotSlots)
 		})
 	}
 }
