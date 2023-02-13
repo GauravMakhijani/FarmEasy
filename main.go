@@ -5,10 +5,10 @@ package main
 
 import (
 	"FarmEasy/config"
+	"FarmEasy/services"
 	"fmt"
 
 	"FarmEasy/db"
-	"FarmEasy/service"
 	"os"
 	"strconv"
 
@@ -65,18 +65,15 @@ func main() {
 }
 
 func startApp() (err error) {
-	store, err := db.Init()
+
+	deps, err := services.InitDependencies()
 	if err != nil {
 		logger.WithField("err", err.Error()).Error("Database init failed")
 		return
 	}
 
-	deps := service.Dependencies{
-		Store: store,
-	}
-
 	// mux router
-	router := service.InitRouter(deps)
+	router := services.InitRouter(deps)
 
 	// init web server
 	server := negroni.Classic()
