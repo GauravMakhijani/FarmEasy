@@ -699,6 +699,22 @@ func (s *DbTestSuite) Test_pgStore_GetAllBookings() {
 				mock.ExpectQuery("SELECT id,machine_id FROM bookings WHERE farmer_id = \\$1").WithArgs(args.farmerId).WillReturnError(errors.New("mocked error"))
 			},
 		},
+		{
+			name: "negativeTest2",
+			args: args{
+				ctx:      context.TODO(),
+				farmerId: 1,
+			},
+			wantBookings: nil,
+			wantErr:      true,
+			prepare: func(args args, mock sqlxmock.Sqlmock) {
+				rows := sqlxmock.NewRows([]string{"id", "machine_id"}).AddRow(1, 1)
+				mock.ExpectQuery("SELECT id,machine_id FROM bookings WHERE farmer_id = \\$1").WithArgs(args.farmerId).WillReturnRows(rows)
+				// rows = sqlxmock.NewRows([]string{"slot_id"}).AddRow(1).AddRow(2).AddRow(3)
+				mock.ExpectQuery("SELECT slot_id FROM slots_booked WHERE booking_id = \\$1").WithArgs(1).WillReturnError(errors.New("mocked error"))
+
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
